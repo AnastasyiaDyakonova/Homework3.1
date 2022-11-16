@@ -1,0 +1,92 @@
+И выполняем следующие действия
+• Когда мы перетащили файлы с произведением Льва Толстого – мы перетащили их в файловую систему виртуальной машины, но не в HDFS, соответственно, в первую очередь нам нужно перенести их в папку нашего пользователя именно на HDFS.
+• После того, как файлы окажутся на HDFS попробуйте выполнить команду, которая выводит содержимое папки. Особенно обратите внимание на права доступа к вашим файлам.
+
+docker ps
+
+CONTAINER ID   IMAGE                                             COMMAND                  CREATED          STATUS                    PORTS                                                      NAMES
+c9a951aa0023   bde2020/hadoop-datanode:1.1.0-hadoop2.8-java8     "/entrypoint.sh /run…"   45 minutes ago   Up 45 minutes (healthy)   0.0.0.0:50075->50075/tcp                                   docker-hadoop-spark-workbench-datanode-1
+988fdeda0132   bde2020/spark-worker:2.1.0-hadoop2.8-hive-java8   "entrypoint.sh /bin/…"   45 minutes ago   Up 45 minutes (healthy)   0.0.0.0:8081->8081/tcp                                     docker-hadoop-spark-workbench-spark-worker-1
+26dd684c544c   bde2020/hadoop-namenode:1.1.0-hadoop2.8-java8     "/entrypoint.sh /run…"   45 minutes ago   Up 45 minutes (healthy)   0.0.0.0:50070->50070/tcp                                   namenode
+9e05fcbfa733   bde2020/spark-master:2.1.0-hadoop2.8-hive-java8   "entrypoint.sh /bin/…"   45 minutes ago   Up 45 minutes (healthy)   0.0.0.0:7077->7077/tcp, 6066/tcp, 0.0.0.0:8080->8080/tcp   spark-master
+94af7640703f   bde2020/spark-notebook:2.1.0-hadoop2.8-hive       "/entrypoint.sh /run…"   45 minutes ago   Up 45 minutes             0.0.0.0:9001->9001/tcp                                     spark-notebook
+959328c9d9aa   bde2020/hdfs-filebrowser:3.11                     "/entrypoint.sh buil…"   45 minutes ago   Up 45 minutes             0.0.0.0:8088->8088/tcp                                     docker-hadoop-spark-workbench-hue-1
+
+
+docker cp C:/Users/Second/Downloads/vim1.txt c9a951aa0023:/
+docker cp C:/Users/Second/Downloads/vim2.txt c9a951aa0023:/
+docker cp C:/Users/Second/Downloads/vim3.txt c9a951aa0023:/
+docker cp C:/Users/Second/Downloads/vim4.txt c9a951aa0023:/
+
+docker exec -it c9a951aa0023 bash
+ls
+bin   dev            etc     hadoop-data  lib    media  opt   root  run.sh  srv  tmp  var
+boot  entrypoint.sh  hadoop  home         lib64  mnt    proc  run   sbin    sys  usr  vim1.txt
+
+hdfs dfs -copyFromLocal vim1.txt /user/cloudera/
+hdfs dfs -copyFromLocal vim2.txt /user/cloudera/
+hdfs dfs -copyFromLocal vim3.txt /user/cloudera/
+hdfs dfs -copyFromLocal vim4.txt /user/cloudera/
+
+
+hdfs dfs -ls /user/cloudera
+-rw-r--r--   3 root cloudera     736519 2022-11-16 10:03 /user/cloudera/vim1.txt
+-rw-r--r--   3 root cloudera     770324 2022-11-16 10:12 /user/cloudera/vim2.txt
+-rw-r--r--   3 root cloudera     843205 2022-11-16 10:13 /user/cloudera/vim3.txt
+-rw-r--r--   3 root cloudera     697960 2022-11-16 10:13 /user/cloudera/vim4.txt
+
+Далее сожмите все 4 тома в 1 файл.
+hdfs dfs -getmerge -nl /user/cloudera/vim1.txt /user/cloudera/vim2.txt /user/cloudera/vim3.txt /user/cloudera/vim4.txt /vim.txt
+ls
+:    boot  entrypoint.sh  hadoop       home  lib64  mnt  proc  run     sbin  sys  usr  vim.txt   vim2.txt  vim4.txt
+bin  dev   etc            hadoop-data  lib   media  opt  root  run.sh  srv   tmp  var  vim1.txt  vim3.txt
+
+ Теперь давайте изменим права доступа к нашему файлу. Чтобы с нашим файлом могли взаимодействовать коллеги, установите режим доступа, который дает полный доступ для владельца файла, а для сторонних пользователей возможность читать и выполнять.
+hdfs dfs -copyFromLocal vim.txt /user/cloudera/
+hdfs dfs -ls /user/cloudera/
+Found 5 items
+-rw-r--r--   3 root cloudera    3048012 2022-11-16 12:00 /user/cloudera/vim.txt
+-rw-r--r--   3 root cloudera     736519 2022-11-16 10:03 /user/cloudera/vim1.txt
+-rw-r--r--   3 root cloudera     770324 2022-11-16 10:12 /user/cloudera/vim2.txt
+-rw-r--r--   3 root cloudera     843205 2022-11-16 10:13 /user/cloudera/vim3.txt
+-rw-r--r--   3 root cloudera     697960 2022-11-16 10:13 /user/cloudera/vim4.txt
+hdfs dfs -chmod u+rwx /user/cloudera/vim.txt
+hdfs dfs -chmod og+xr /user/cloudera/vim.txt
+ 
+ • Попробуйте заново использовать команду для вывода содержимого папки и обратите внимание как изменились права доступа к файлу.
+hdfs dfs -ls /user/cloudera/
+Found 5 items
+-rwxr-xr-x   3 root cloudera    3048012 2022-11-16 12:00 /user/cloudera/vim.txt
+-rw-r--r--   3 root cloudera     736519 2022-11-16 10:03 /user/cloudera/vim1.txt
+-rw-r--r--   3 root cloudera     770324 2022-11-16 10:12 /user/cloudera/vim2.txt
+-rw-r--r--   3 root cloudera     843205 2022-11-16 10:13 /user/cloudera/vim3.txt
+-rw-r--r--   3 root cloudera     697960 2022-11-16 10:13 /user/cloudera/vim4.txt
+ 
+• Теперь попробуем вывести на экран информацию о том, сколько места на диске занимает наш файл. Желательно, чтобы размер файла был удобночитаемым.
+hdfs dfs -du -h /user/cloudera/vim.txt
+2.9 M  /user/cloudera/vim.txt
+
+
+• На экране вы можете заметить 2 числа. Первое число – это фактический размер файла, а второе – это занимаемое файлом место на диске с учетом репликации. По умолчанию в данной версии HDFS эти числа будут одинаковы – это означает, что никакой репликации нет – нас это не очень устраивает, мы хотели бы, чтобы у наших файлов существовали резервные копии, поэтому напишите команду, которая изменит фактор репликации на 2.
+hdfs dfs -setrep 2 /user/cloudera/vim.txt
+
+• Повторите команду, которая выводит информацию о том, какое место на диске занимает файл и убедитесь, что изменения произошли.
+hdfs dfs -du -h /user/cloudera/vim.txt
+2.9 M  /user/cloudera/vim.txt
+
+• Напишите команду, которая подсчитывает количество строк в вашем файле
+docker exec -it 988fdeda0132 bash
+cd spark
+./bin/spark-shell
+
+import org.apache.spark.sql.SparkSession
+val spark = SparkSession.builder().master("local[1]").appName("1TSparkFirst").getOrCreate()
+val vim = spark.read.textFile("/user/cloudera/vim.txt")
+vim.head(10)
+ Array[String] = Array("??? ?????????? ??????? ", ????? ? ???. ??? 1, "     ", "", "     ", ??? ?????????? ???????, "????? ? ???  ", ??? 1, "     ", ????? ??????)
+
+
+val workCounts = vim.flatMap(line => line.split(" ")).groupByKey(identity).count()
+
+worcCounts.head(20)
+Array[(String, Long)] = Array((ces,20), (Morio:,1), (????????????-?????,1), (XVII,9), (puis,,3), (???????????-???????,4), (???????????-????????????,4), (assoupi,,1), (tant,12), (recu,5), (????????????.],2), (...,3), (????-?????-?????-????,1), (chien,1), (????????.),8), (gloria,1), (sauvait,1), (Ligne,1), (douleurs,1), (Persan,,1))
